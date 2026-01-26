@@ -7,6 +7,8 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 dotenv.config();
 
+const stripe = require('stripe')(process.env.PAYMENT_GATEWAY_KEY);
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -102,6 +104,30 @@ async function run() {
       const result = await parcelCollection.insertOne(newParcel);
       res.status(201).send(result);
     });
+
+    // Stripe logic in your server run() function
+app.post("/create-payment-intent", async (req, res) => {
+  try {
+    const { amount } = req.body; // amount in taka
+
+    if (!amount) {
+      return res.status(400).send({ message: "Amount is required" });
+    }
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(amount * 100), // cents
+      currency: "usd",
+      payment_method_types: ["card"],
+    });
+
+    res.send({
+      clientSecret: paymentIntent.client_secret,
+    });
+  } catch (error) {
+    res.status(500).send({ error: error.message });
+  }
+});
+
 
     // Parcel delete kora
     app.delete("/parcels/:id", async (req, res) => {
