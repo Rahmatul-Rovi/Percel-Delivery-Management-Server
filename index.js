@@ -55,7 +55,6 @@ async function run() {
       res.send(result);
     });
 
-
     // ------------------------------------------------
     // 📦 PARCEL RELATED APIS
     // ------------------------------------------------
@@ -78,6 +77,25 @@ async function run() {
       }
     });
 
+    const { ObjectId } = require("mongodb");
+
+    // Get a single parcel by ID
+    app.get("/parcels/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await parcelCollection.findOne(query);
+
+        if (!result) {
+          return res.status(404).send({ message: "Parcel not found" });
+        }
+
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Invalid ID format or Server Error" });
+      }
+    });
+
     // Notun parcel post kora
     app.post("/parcels", async (req, res) => {
       const newParcel = req.body;
@@ -96,7 +114,6 @@ async function run() {
     // Ping confirmation
     await client.db("admin").command({ ping: 1 });
     console.log("MongoDB Connected Successfully!");
-
   } finally {
     // Keep connection open
   }
