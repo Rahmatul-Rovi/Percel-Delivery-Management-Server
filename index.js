@@ -7,7 +7,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 dotenv.config();
 
-const stripe = require('stripe')(process.env.PAYMENT_GATEWAY_KEY);
+const stripe = require("stripe")(process.env.PAYMENT_GATEWAY_KEY);
 
 // Middleware
 app.use(cors());
@@ -80,6 +80,67 @@ async function run() {
     });
 
     const { ObjectId } = require("mongodb");
+    // 1. Initialize Payment Collection (Add this near your other collections)
+    const paymentCollection = db.collection("payments");
+
+    /** * POST: Record successful payment and update parcel status
+     * Description: Saves the payment receipt and marks the corresponding parcel as 'paid'.
+     */
+    app.post("/payments", async (req, res) => {
+      try {
+        const payment = req.body;
+
+        // Save payment details into history
+        const insertResult = await paymentCollection.insertOne(payment);
+
+        // Update parcel paymentStatus to "paid" using parcelId
+        const query = { _id: new ObjectId(payment.parcelId) };
+        const updatedDoc = {
+          $set: {
+            paymentStatus: "paid",
+            transactionId: payment.transactionId,
+          },
+        };
+
+        const updateResult = await parcelCollection.updateOne(
+          query,
+          updatedDoc,
+        );
+
+        res.status(200).send({ insertResult, updateResult });
+      } catch (error) {
+        console.error("Payment Record Error:", error);
+        res.status(500).send({ message: "Failed to record payment" });
+      }
+    });
+
+    /** * GET: Load payment history (Dynamic for both User and Admin)
+     * Description:
+     * - If email is provided: returns history for that specific user.
+     * - If no email: returns all history (for Admin).
+     * - Sorted by date in descending order (latest first).
+     */
+    app.get("/payments", async (req, res) => {
+      try {
+        const email = req.query.email;
+        let query = {};
+
+        // Filter by email if provided in query params
+        if (email) {
+          query = { email: email };
+        }
+
+        const result = await paymentCollection
+          .find(query)
+          .sort({ date: -1 }) // Descending order: latest payments at the top
+          .toArray();
+
+        res.send(result);
+      } catch (error) {
+        console.error("Payment History Fetch Error:", error);
+        res.status(500).send({ message: "Internal Server Error" });
+      }
+    });
 
     // Get a single parcel by ID
     app.get("/parcels/:id", async (req, res) => {
@@ -106,28 +167,27 @@ async function run() {
     });
 
     // Stripe logic in your server run() function
-app.post("/create-payment-intent", async (req, res) => {
-  try {
-    const { amount } = req.body; // amount in taka
+    app.post("/create-payment-intent", async (req, res) => {
+      try {
+        const { amount } = req.body; // amount in taka
 
-    if (!amount) {
-      return res.status(400).send({ message: "Amount is required" });
-    }
+        if (!amount) {
+          return res.status(400).send({ message: "Amount is required" });
+        }
 
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount * 100), // cents
-      currency: "usd",
-      payment_method_types: ["card"],
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: Math.round(amount * 100), // cents
+          currency: "usd",
+          payment_method_types: ["card"],
+        });
+
+        res.send({
+          clientSecret: paymentIntent.client_secret,
+        });
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
     });
-
-    res.send({
-      clientSecret: paymentIntent.client_secret,
-    });
-  } catch (error) {
-    res.status(500).send({ error: error.message });
-  }
-});
-
 
     // Parcel delete kora
     app.delete("/parcels/:id", async (req, res) => {
