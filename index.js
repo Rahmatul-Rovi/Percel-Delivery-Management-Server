@@ -35,6 +35,23 @@ async function run() {
     const parcelCollection = db.collection("parcels");
     const userCollection = db.collection("users"); // User Collection
 
+    // Custom middlewares
+     const verifyFBToken = async(req, res, next) => {
+      const authHeader = req.headers.authorization;
+      if(!authHeader){
+        return res.status(401).send({message:"Unauthorized access"})
+      }
+      
+      const token = authHeader.split(" ")[1];
+      if(!token){
+         return res.status(401).send({message:"Unauthorized access"})
+      }
+
+      console.log('header in middleware', req.headers);
+
+      next();
+     }
+
     // ------------------------------------------------
     // 🚀 USER RELATED APIS (Eigulo chilo na tai error dito)
     // ------------------------------------------------
@@ -101,7 +118,7 @@ async function run() {
     /** * POST: Record successful payment and update parcel status
      * Description: Saves the payment receipt and marks the corresponding parcel as 'paid'.
      */
-    app.post("/payments", async (req, res) => {
+    app.post("/payments", verifyFBToken ,async (req, res) => {
       try {
         const payment = req.body;
 
