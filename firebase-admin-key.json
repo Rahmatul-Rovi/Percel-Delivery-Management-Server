@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "parcel-management-system-792e2",
+  "private_key_id": "af44e77cc7d2f61d23cdf3cfe433747246e6c65a",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCgSRaLR7QY/E4x\nbA9zAj5ZvAKMoD/a8QbtV6SVPmIhk5pdql+AEyLktj+xlWErER1lwG+bFeH7C/eo\nGqenewp/qrYxwB2WaePCpdh1Yp88npiTygheoQSwjtWpTI1eVRNZkfvdHEbgKcqY\np3J89uPy0BzTBWflHPt6JtCxe0h8S/ImUaUIynr44l924djeiLDD4ReQFp2TdMqd\nvBr5Qbw61+IZ6uCKwY/E3uzupqzyhDnVL2j7peVOl3dARWjqfk7Ux9mOg/pXrAyX\nubGOY/VLvqce5n6d90vmMXejRmZUVLnMXQl5HKGSw33x8RkzVP7MKuXAOstRW8ai\njitR1KgRAgMBAAECggEACYqln5Tye6pJXVfOyPc75EufkI+EPZxWNTrKaWKqpM+3\nQ2wo/eQlvPJnHZiEOElvM+dzaAqyxnxn5HHxw7PnZBeIJl4GujWDgXWDSo7xu8IV\nLcxmbdECs8qiSCRue0xv4nJ2SStYbMUQHRZFZ9BVXCxXYEMqHtF4MZqt7GLSZdO8\nxSAa4s51fBC4hNoYDEH0q1KD84BJqln4Ji77+LH2DHvB2PJdHOfor1/D5QWekpNV\nW8leoj7QV9f70JMFugA972dk6pk2KHdhy+F+TQEMDduOXlKeSp6XmdyHfet9KQ44\n1DrvdUNBTIzNcF6yZEflrskduvVIWOcIDCHyTtiRgQKBgQDNmGv5YvCTP/g+F4YW\nNL4Im5+9rkhb24ZUC/bQhsfNXu8da5nVuvyIYsQXMozKx7Fk6/A8+6stT4V8w+NO\npitnMgCtHjtYgpLcB5PLPH55ScEk6DuW9EdNvhpdbkO/2nmETXciiFSEw6Gtc/xW\nugjc4AFR/eOz5TwrzlQprIEE9QKBgQDHlO0xqy/6R6S2F551FDmJA4/3UmQ6XvoF\n3tHsU9ChyyrYq5cpqBGniiV4J53Ce4pkoTy8/581Mn5nHRgFdtorujnal0C1UgXL\nCKueU1bNy/I1GQfeOFP7JvG+AV6qBwVBlWYY+QC59ODD51/XzSOVJc+Dvkr5y1rc\nlwbWuRYFLQKBgQDI3VrYawa6BmylVVxGg78KL+lwaz78p8xkfs/jyVqZ1l9tcfv5\nKdeh9ES6mUOetl0lSbIMEqGaAjBbxhJle8m558trV7cJcYDEAY8up+q02w8d3Nqj\nUAP9+3ZMw/bjETNZxElZ7rIMiAmEqmXl4ZnZGe2QSqnVz2frMIlfsc7XpQKBgDMB\nl6EC/A79slWrMZ8AXTfsBiYSE3VrgoBvkrzQKti+oKOhLs/BmUl1H+BWV5Y1lofj\nQS+YMKsazX0yzUnQNy/HtzNrRmlQnhRmkd2ztNKBldQGIqGjSas9J7kEhpnzk19Q\nfDhTouDjeXH3tuHjFn3unNsxjd3LH9ySaHgF81+9AoGAVRkB4oeC5DX/jJYBYOWX\nhhYPIb+Gsbh5f3AIf0/hO42fvhZaF7JPEewHosR8KmF058rWhb0zymBLrzsZNV3S\nLRgBqH9uVia/acGSyxIj9PsG0VVkUrACGmVpKOkZoFePgycO5swxOxsEvtfNuxQA\nZildEi4zYBdcooYL/xApY4A=\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-fbsvc@parcel-management-system-792e2.iam.gserviceaccount.com",
+  "client_id": "105852061178637598719",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40parcel-management-system-792e2.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

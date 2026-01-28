@@ -4,6 +4,7 @@ const dotenv = require("dotenv");
 const app = express();
 const port = process.env.PORT || 3000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const admin = require("firebase-admin");
 
 dotenv.config();
 
@@ -12,6 +13,14 @@ const stripe = require("stripe")(process.env.PAYMENT_GATEWAY_KEY);
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+
+const serviceAccount = require("./firebase-admin-key.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+
 
 // MongoDB URI
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.bou0ahg.mongodb.net/?appName=Cluster0`;
@@ -41,6 +50,9 @@ async function run() {
       if(!authHeader){
         return res.status(401).send({message:"Unauthorized access"})
       }
+
+      //verify the token
+
       
       const token = authHeader.split(" ")[1];
       if(!token){
