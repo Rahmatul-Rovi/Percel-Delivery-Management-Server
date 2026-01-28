@@ -29,13 +29,28 @@ async function run() {
     // Connect to MongoDB
     await client.connect();
 
-    const db = client.db("parcelDB");
+    const db = client.db("parcelDB");              //database name
+
+    const usersCollection = db.collection("users");
     const parcelCollection = db.collection("parcels");
     const userCollection = db.collection("users"); // User Collection
 
     // ------------------------------------------------
     // 🚀 USER RELATED APIS (Eigulo chilo na tai error dito)
     // ------------------------------------------------
+
+   
+    app.post('/users', async(req, res)=> {
+      const email = req.body.email;
+      const userExists = await userCollection.findOne({ email });
+      if(userExists){
+        return res.status(200).send({message:"User already exists", insertedId: false})
+      }
+      const user = req.body;
+      const result = await userCollection.insertOne(user);
+      res.send(result);
+    })
+
 
     // User data save kora (Login er somoy dorkar)
     app.post("/users", async (req, res) => {
