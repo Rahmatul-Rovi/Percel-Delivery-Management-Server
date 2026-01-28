@@ -61,8 +61,15 @@ async function run() {
       }
      
       //verify the token
-      const res = await admin.auth().verifyIdToken(token);
-      next();
+     try{
+       const decoded = await admin.auth().verifyIdToken(token);
+       req.decoded = decoded;
+        next();
+     }
+     catch(error){
+      return res.status(401).send({message:"Unauthorized access"})
+     }
+     
      }
 
     // ------------------------------------------------
@@ -107,7 +114,7 @@ async function run() {
     // ------------------------------------------------
 
     // Shob parcel ene user email diye filter kora
-    app.get("/parcels", async (req, res) => {
+    app.get("/parcels", verifyFBToken ,async (req, res) => {
       try {
         const email = req.query.email;
         let query = {};
@@ -165,9 +172,12 @@ async function run() {
      * - If no email: returns all history (for Admin).
      * - Sorted by date in descending order (latest first).
      */
-    app.get("/payments", async (req, res) => {
+    app.get("/payments", verifyFBToken ,async (req, res) => {
       try {
         const email = req.query.email;
+        if(decoded.email !== email){
+          return res.status(401).send({message:"Unauthorized access"})
+        }
         let query = {};
 
         // Filter by email if provided in query params
