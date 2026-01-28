@@ -52,15 +52,16 @@ async function run() {
       }
 
       //verify the token
+      
 
       
       const token = authHeader.split(" ")[1];
       if(!token){
          return res.status(401).send({message:"Unauthorized access"})
       }
-
-      console.log('header in middleware', req.headers);
-
+     
+      //verify the token
+      const res = await admin.auth().verifyIdToken(token);
       next();
      }
 
