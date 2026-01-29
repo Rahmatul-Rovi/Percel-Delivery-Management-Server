@@ -43,6 +43,7 @@ async function run() {
     const usersCollection = db.collection("users");
     const parcelCollection = db.collection("parcels");
     const userCollection = db.collection("users"); // User Collection
+    const ridersCollection = db.collection("riders"); //rider Collection
 
     // Custom middlewares
      const verifyFBToken = async(req, res, next) => {
@@ -175,7 +176,7 @@ async function run() {
     app.get("/payments", verifyFBToken ,async (req, res) => {
       try {
         const email = req.query.email;
-        if(decoded.email !== email){
+        if(req.decoded.email !== email){
           return res.status(401).send({message:"Unauthorized access"})
         }
         let query = {};
@@ -252,6 +253,13 @@ async function run() {
       res.send(result);
     });
 
+
+    //Riders
+    app.post('/riders', async(req, res) => {
+      const rider = req.body;
+      const result = await ridersCollection.insertOne(rider);
+      res.send(result);
+    })
     // Ping confirmation
     await client.db("admin").command({ ping: 1 });
     console.log("MongoDB Connected Successfully!");
