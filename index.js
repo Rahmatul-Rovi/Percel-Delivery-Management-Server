@@ -72,20 +72,17 @@ async function run() {
     // ------------------------------------------------
 
    // 1. Search User by Email (Case-insensitive check is safer)
-app.get("/users/search", async (req, res) => {
+app.get("/users/search-suggestions", async (req, res) => {
   const email = req.query.email;
-  if (!email) {
-    return res.status(400).send({ message: "Email is required" });
-  }
-  
-  // Use regex for case-insensitive search to avoid spelling issues
-  const query = { email: { $regex: `^${email}$`, $options: "i" } };
-  const user = await userCollection.findOne(query);
-  
-  if (!user) {
-    return res.status(404).send({ message: "User not found" });
-  }
-  res.send(user);
+  if (!email) return res.send([]);
+
+  // 'i' option mane case-insensitive, mane boro/choto hater spelling e problem hobe na
+  const query = { email: { $regex: email, $options: "i" } };
+  const result = await userCollection
+    .find(query)
+    .limit(5) // Suggestion e 5 tar beshi dorkar nai
+    .toArray();
+  res.send(result);
 });
 
 // 2. Role Update (Security added)
