@@ -38,7 +38,7 @@ async function run() {
 
     const db = client.db("parcelDB"); //database name
 
-    const usersCollection = db.collection("users");
+    //const usersCollection = db.collection("users");
     const parcelCollection = db.collection("parcels");
     const userCollection = db.collection("users"); // User Collection
     const ridersCollection = db.collection("riders"); //rider Collection
@@ -67,6 +67,45 @@ async function run() {
       }
     };
 
+    // ------------------------------------------------
+    //     🚨 Admin Related
+    // ------------------------------------------------
+
+   // 1. Search User by Email (Case-insensitive check is safer)
+app.get("/users/search", async (req, res) => {
+  const email = req.query.email;
+  if (!email) {
+    return res.status(400).send({ message: "Email is required" });
+  }
+  
+  // Use regex for case-insensitive search to avoid spelling issues
+  const query = { email: { $regex: `^${email}$`, $options: "i" } };
+  const user = await userCollection.findOne(query);
+  
+  if (!user) {
+    return res.status(404).send({ message: "User not found" });
+  }
+  res.send(user);
+});
+
+// 2. Role Update (Security added)
+app.patch("/users/role/:id", async (req, res) => {
+  const id = req.params.id;
+  const { role } = req.body;
+  
+  // Basic validation to ensure role is valid
+  if (!['admin', 'rider', 'user'].includes(role)) {
+    return res.status(400).send({ message: "Invalid role type" });
+  }
+
+  const filter = { _id: new ObjectId(id) };
+  const updatedDoc = {
+    $set: { role: role },
+  };
+  
+  const result = await userCollection.updateOne(filter, updatedDoc);
+  res.send(result);
+});
     // ------------------------------------------------
     // 🚀 USER RELATED APIS (Eigulo chilo na tai error dito)
     // ------------------------------------------------
@@ -267,11 +306,43 @@ async function run() {
 
     // ১. Approve Rider (Status update)
     app.patch("/riders/approve/:id", async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id) };
-      const updateDoc = { $set: { status: "active" } };
-      const result = await ridersCollection.updateOne(filter, updateDoc);
-      res.send(result);
+      try {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+
+        // ১. রাইডার অ্যাপ্লিকেশন থেকে ডাটা নিন
+        const application = await ridersCollection.findOne(filter);
+        if (!application) {
+          return res.status(404).send({ message: "Application not found" });
+        }
+
+        const userEmail = application.email;
+
+        // ২. রাইডার অ্যাপ্লিকেশনের স্ট্যাটাস 'active' করা
+        const appUpdate = await ridersCollection.updateOne(filter, {
+          $set: { status: "active" },
+        });
+
+        // ৩. মেইন ইউজার কালেকশনে রোল আপডেট করা
+        // আমরা ইমেইল দিয়ে আপডেট করছি এবং নিশ্চিত করছি যেন স্পেলিং এরর না হয়
+        const userUpdate = await userCollection.updateOne(
+          { email: userEmail },
+          { $set: { role: "rider" } },
+        );
+
+        console.log(
+          `Updated user ${userEmail} to rider. Modified: ${userUpdate.modifiedCount}`,
+        );
+
+        res.send({
+          success: true,
+          message: "Rider approved and role updated",
+          appUpdate,
+          userUpdate,
+        });
+      } catch (error) {
+        res.status(500).send({ message: error.message });
+      }
     });
 
     // ২. Reject Rider (Delete application)
