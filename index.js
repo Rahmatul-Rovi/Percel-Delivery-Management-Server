@@ -281,7 +281,25 @@ async function run() {
       const result = await ridersCollection.deleteOne(query);
       res.send(result);
     });
-    
+
+    // Loading Active Riders Data
+    app.get("/riders/active", async (req, res) => {
+      const query = { status: "active" };
+      const result = await ridersCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // Rider Deactivate (Status 'pending')
+    app.patch("/riders/deactivate/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: { status: "pending" },
+      };
+      const result = await ridersCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
     // Ping confirmation
     await client.db("admin").command({ ping: 1 });
     console.log("MongoDB Connected Successfully!");
