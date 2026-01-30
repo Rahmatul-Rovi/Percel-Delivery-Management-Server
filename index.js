@@ -264,6 +264,24 @@ async function run() {
         res.status(500).send({ message: "Internal Server Error" });
       }
     });
+
+    // ১. Approve Rider (Status update)
+    app.patch("/riders/approve/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = { $set: { status: "active" } };
+      const result = await ridersCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
+    // ২. Reject Rider (Delete application)
+    app.delete("/riders/reject/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await ridersCollection.deleteOne(query);
+      res.send(result);
+    });
+    
     // Ping confirmation
     await client.db("admin").command({ ping: 1 });
     console.log("MongoDB Connected Successfully!");
