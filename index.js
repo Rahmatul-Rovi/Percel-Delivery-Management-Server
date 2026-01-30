@@ -14,13 +14,11 @@ const stripe = require("stripe")(process.env.PAYMENT_GATEWAY_KEY);
 app.use(cors());
 app.use(express.json());
 
-
 const serviceAccount = require("./firebase-admin-key.json");
 
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
+  credential: admin.credential.cert(serviceAccount),
 });
-
 
 // MongoDB URI
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.bou0ahg.mongodb.net/?appName=Cluster0`;
@@ -38,7 +36,7 @@ async function run() {
     // Connect to MongoDB
     await client.connect();
 
-    const db = client.db("parcelDB");              //database name
+    const db = client.db("parcelDB"); //database name
 
     const usersCollection = db.collection("users");
     const parcelCollection = db.collection("parcels");
@@ -46,49 +44,45 @@ async function run() {
     const ridersCollection = db.collection("riders"); //rider Collection
 
     // Custom middlewares
-     const verifyFBToken = async(req, res, next) => {
+    const verifyFBToken = async (req, res, next) => {
       const authHeader = req.headers.authorization;
-      if(!authHeader){
-        return res.status(401).send({message:"Unauthorized access"})
+      if (!authHeader) {
+        return res.status(401).send({ message: "Unauthorized access" });
       }
 
       //verify the token
-      
 
-      
       const token = authHeader.split(" ")[1];
-      if(!token){
-         return res.status(401).send({message:"Unauthorized access"})
+      if (!token) {
+        return res.status(401).send({ message: "Unauthorized access" });
       }
-     
+
       //verify the token
-     try{
-       const decoded = await admin.auth().verifyIdToken(token);
-       req.decoded = decoded;
+      try {
+        const decoded = await admin.auth().verifyIdToken(token);
+        req.decoded = decoded;
         next();
-     }
-     catch(error){
-      return res.status(401).send({message:"Unauthorized access"})
-     }
-     
-     }
+      } catch (error) {
+        return res.status(401).send({ message: "Unauthorized access" });
+      }
+    };
 
     // ------------------------------------------------
     // 🚀 USER RELATED APIS (Eigulo chilo na tai error dito)
     // ------------------------------------------------
 
-   
-    app.post('/users', async(req, res)=> {
+    app.post("/users", async (req, res) => {
       const email = req.body.email;
       const userExists = await userCollection.findOne({ email });
-      if(userExists){
-        return res.status(200).send({message:"User already exists", insertedId: false})
+      if (userExists) {
+        return res
+          .status(200)
+          .send({ message: "User already exists", insertedId: false });
       }
       const user = req.body;
       const result = await userCollection.insertOne(user);
       res.send(result);
-    })
-
+    });
 
     // User data save kora (Login er somoy dorkar)
     app.post("/users", async (req, res) => {
@@ -115,7 +109,7 @@ async function run() {
     // ------------------------------------------------
 
     // Shob parcel ene user email diye filter kora
-    app.get("/parcels", verifyFBToken ,async (req, res) => {
+    app.get("/parcels", verifyFBToken, async (req, res) => {
       try {
         const email = req.query.email;
         let query = {};
@@ -139,7 +133,7 @@ async function run() {
     /** * POST: Record successful payment and update parcel status
      * Description: Saves the payment receipt and marks the corresponding parcel as 'paid'.
      */
-    app.post("/payments", verifyFBToken ,async (req, res) => {
+    app.post("/payments", verifyFBToken, async (req, res) => {
       try {
         const payment = req.body;
 
@@ -173,11 +167,11 @@ async function run() {
      * - If no email: returns all history (for Admin).
      * - Sorted by date in descending order (latest first).
      */
-    app.get("/payments", verifyFBToken ,async (req, res) => {
+    app.get("/payments", verifyFBToken, async (req, res) => {
       try {
         const email = req.query.email;
-        if(req.decoded.email !== email){
-          return res.status(401).send({message:"Unauthorized access"})
+        if (req.decoded.email !== email) {
+          return res.status(401).send({ message: "Unauthorized access" });
         }
         let query = {};
 
@@ -253,13 +247,23 @@ async function run() {
       res.send(result);
     });
 
-
     //Riders
-    app.post('/riders', async(req, res) => {
+    app.post("/riders", async (req, res) => {
       const rider = req.body;
       const result = await ridersCollection.insertOne(rider);
       res.send(result);
-    })
+    });
+
+    // ১. পেন্ডিং রাইডারদের ডাটা লোড করার এপিআই
+    app.get("/riders/pending", async (req, res) => {
+      try {
+        const query = { status: "pending" };
+        const result = await ridersCollection.find(query).toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Internal Server Error" });
+      }
+    });
     // Ping confirmation
     await client.db("admin").command({ ping: 1 });
     console.log("MongoDB Connected Successfully!");
