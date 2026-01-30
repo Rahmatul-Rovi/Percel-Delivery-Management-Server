@@ -85,6 +85,37 @@ app.get("/users/search-suggestions", async (req, res) => {
   res.send(result);
 });
 
+/**
+ * GET: Fetch User Role by Email
+ * Description: Checks the 'users' collection and returns the role.
+ * Security: Uses verifyFBToken to ensure the request is from a logged-in user.
+ */
+app.get("/users/role/:email", verifyFBToken, async (req, res) => {
+  try {
+    const email = req.params.email;
+
+    // Optional Security: Ensure users can only check their own role 
+    // (unless the requester is already an admin)
+    if (req.decoded.email !== email) {
+        // You can fetch the requester's role here to allow admins to see others' roles
+        // For now, simple self-check security:
+        // return res.status(403).send({ message: "Forbidden Access" });
+    }
+
+    const query = { email: email };
+    const user = await userCollection.findOne(query);
+
+    // If user exists, send their role; otherwise, default to 'user'
+    res.send({ 
+      role: user?.role || "user" 
+    });
+
+  } catch (error) {
+    console.error("Role Fetch Error:", error);
+    res.status(500).send({ message: "Internal Server Error" });
+  }
+});
+
 // 2. Role Update (Security added)
 app.patch("/users/role/:id", async (req, res) => {
   const id = req.params.id;
