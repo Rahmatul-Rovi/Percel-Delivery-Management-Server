@@ -67,99 +67,129 @@ async function run() {
       }
     };
 
-    const verifyAdmin = async(req, res, next) => {
+    const verifyAdmin = async (req, res, next) => {
       const email = req.decoded.email;
-      const query  = {email};
+      const query = { email };
       const user = await userCollection.findOne(query);
-      if(!user || user.role !== "admin"){
-        return res.status(403).send({message: "Forbidden Access"});
+      if (!user || user.role !== "admin") {
+        return res.status(403).send({ message: "Forbidden Access" });
       }
       next();
-    }
+    };
 
     // ------------------------------------------------
     //     🚨 Admin Related
     // ------------------------------------------------
 
-   // 1. Search User by Email (Case-insensitive check is safer)
-app.get("/users/search-suggestions", async (req, res) => {
-  const email = req.query.email;
-  if (!email) return res.send([]);
+    // 1. Search User by Email (Case-insensitive check is safer)
+    app.get("/users/search-suggestions", async (req, res) => {
+      const email = req.query.email;
+      if (!email) return res.send([]);
 
-  // 'i' option mane case-insensitive, mane boro/choto hater spelling e problem hobe na
-  const query = { email: { $regex: email, $options: "i" } };
-  const result = await userCollection
-    .find(query)
-    .limit(5) // Suggestion e 5 tar beshi dorkar nai
-    .toArray();
-  res.send(result);
-});
+      // 'i' option mane case-insensitive, mane boro/choto hater spelling e problem hobe na
+      const query = { email: { $regex: email, $options: "i" } };
+      const result = await userCollection
+        .find(query)
+        .limit(5) // Suggestion e 5 tar beshi dorkar nai
+        .toArray();
+      res.send(result);
+    });
 
-/**
- * GET: Fetch User Role by Email
- * Description: Checks the 'users' collection and returns the role.
- * Security: Uses verifyFBToken to ensure the request is from a logged-in user.
- */
-app.get("/users/role/:email", verifyFBToken, async (req, res) => {
+    /**
+     * GET: Fetch User Role by Email
+     * Description: Checks the 'users' collection and returns the role.
+     * Security: Uses verifyFBToken to ensure the request is from a logged-in user.
+     */
+   app.get("/users/role/:email", verifyFBToken, async (req, res) => {
   try {
     const email = req.params.email;
-
-    // Optional Security: Ensure users can only check their own role 
-    // (unless the requester is already an admin)
-    if (req.decoded.email !== email) {
-        // You can fetch the requester's role here to allow admins to see others' roles
-        // For now, simple self-check security:
-        // return res.status(403).send({ message: "Forbidden Access" });
-    }
-
     const query = { email: email };
     const user = await userCollection.findOne(query);
 
-    // If user exists, send their role; otherwise, default to 'user'
-    res.send({ 
-      role: user?.role || "user" 
+    // ডাটাবেসে রোল না থাকলে 'user' হিসেবে পাঠান
+    res.send({
+      role: user?.role || "user",
     });
-
   } catch (error) {
-    console.error("Role Fetch Error:", error);
     res.status(500).send({ message: "Internal Server Error" });
   }
 });
 
-// 2. Role Update (Security added)
-app.patch("/users/role/:id", verifyFBToken, verifyAdmin, async (req, res) => {
-  const id = req.params.id;
-  const { role } = req.body;
-  
-  // Basic validation to ensure role is valid
-  if (!['admin', 'rider', 'user'].includes(role)) {
-    return res.status(400).send({ message: "Invalid role type" });
-  }
 
-  const filter = { _id: new ObjectId(id) };
-  const updatedDoc = {
-    $set: { role: role },
-  };
-  
-  const result = await userCollection.updateOne(filter, updatedDoc);
-  res.send(result);
+// ১. ইউজার রোল চেক করার API (DashBoard এ অ্যাডমিন অপশন দেখানোর জন্য মেইন কি)
+app.get("/users/role/:email", verifyFBToken, async (req, res) => {
+    const email = req.params.email;
+    const user = await userCollection.findOne({ email });
+    res.send({ role: user?.role || "user" });
 });
+
+// ২. ইউজার সেভ করা (Social Login বা Register এর সময়)
+app.post("/users", async (req, res) => {
+    const user = req.body;
+    const query = { email: user.email };
+    const existingUser = await userCollection.findOne(query);
+    if (existingUser) {
+        return res.send({ message: "User already exists", insertedId: null });
+    }
+    const result = await userCollection.insertOne({
+        ...user,
+        role: user.role || 'user', // ডিফল্ট রোল ইউজার
+        timestamp: new Date()
+    });
+    res.send(result);
+});
+
+// ৩. পার্সেল বুকিং API
+app.post("/parcels", verifyFBToken, async (req, res) => {
+    const newParcel = req.body;
+    // এখানে সার্ভার সাইড থেকে স্ট্যাটাস সেট করে দেওয়া ভালো
+    const result = await parcelCollection.insertOne({
+        ...newParcel,
+        deliveryStatus: "Processing",
+        paymentStatus: "unpaid"
+    });
+    res.status(201).send(result);
+});
+
+    // 2. Role Update (Security added)
+    app.patch(
+      "/users/role/:id",
+      verifyFBToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const { role } = req.body;
+
+        // Basic validation to ensure role is valid
+        if (!["admin", "rider", "user"].includes(role)) {
+          return res.status(400).send({ message: "Invalid role type" });
+        }
+
+        const filter = { _id: new ObjectId(id) };
+        const updatedDoc = {
+          $set: { role: role },
+        };
+
+        const result = await userCollection.updateOne(filter, updatedDoc);
+        res.send(result);
+      },
+    );
     // ------------------------------------------------
     // 🚀 USER RELATED APIS (Eigulo chilo na tai error dito)
     // ------------------------------------------------
 
-    app.post("/users", async (req, res) => {
-      const email = req.body.email;
-      const userExists = await userCollection.findOne({ email });
-      if (userExists) {
-        return res
-          .status(200)
-          .send({ message: "User already exists", insertedId: false });
-      }
-      const user = req.body;
-      const result = await userCollection.insertOne(user);
-      res.send(result);
-    });
+    // app.post("/users", async (req, res) => {
+    //   const email = req.body.email;
+    //   const userExists = await userCollection.findOne({ email });
+    //   if (userExists) {
+    //     return res
+    //       .status(200)
+    //       .send({ message: "User already exists", insertedId: false });
+    //   }
+    //   const user = req.body;
+    //   const result = await userCollection.insertOne(user);
+    //   res.send(result);
+    // });
 
     // User data save kora (Login er somoy dorkar)
     app.post("/users", async (req, res) => {
@@ -202,6 +232,21 @@ app.patch("/users/role/:id", verifyFBToken, verifyAdmin, async (req, res) => {
         res.status(500).send({ message: "Internal Server Error" });
       }
     });
+
+    // Get parcels for assignment (Paid and Processing)
+    app.get(
+      "/parcels/assignable",
+      verifyFBToken,
+      verifyAdmin,
+      async (req, res) => {
+        const query = {
+          deliveryStatus: "Processing",
+          paymentStatus: "paid",
+        };
+        const result = await parcelCollection.find(query).toArray();
+        res.send(result);
+      },
+    );
 
     const { ObjectId } = require("mongodb");
     // 1. Initialize Payment Collection (Add this near your other collections)
@@ -343,45 +388,50 @@ app.patch("/users/role/:id", verifyFBToken, verifyAdmin, async (req, res) => {
     });
 
     // ১. Approve Rider (Status update)
-    app.patch("/riders/approve/:id", verifyFBToken, verifyAdmin, async (req, res) => {
-      try {
-        const id = req.params.id;
-        const filter = { _id: new ObjectId(id) };
+    app.patch(
+      "/riders/approve/:id",
+      verifyFBToken,
+      verifyAdmin,
+      async (req, res) => {
+        try {
+          const id = req.params.id;
+          const filter = { _id: new ObjectId(id) };
 
-        // Rider Application Data
-        const application = await ridersCollection.findOne(filter);
-        if (!application) {
-          return res.status(404).send({ message: "Application not found" });
+          // Rider Application Data
+          const application = await ridersCollection.findOne(filter);
+          if (!application) {
+            return res.status(404).send({ message: "Application not found" });
+          }
+
+          const userEmail = application.email;
+
+          // ২. রাইডার অ্যাপ্লিকেশনের স্ট্যাটাস 'active' করা
+          const appUpdate = await ridersCollection.updateOne(filter, {
+            $set: { status: "active" },
+          });
+
+          // ৩. মেইন ইউজার কালেকশনে রোল আপডেট করা
+          // আমরা ইমেইল দিয়ে আপডেট করছি এবং নিশ্চিত করছি যেন স্পেলিং এরর না হয়
+          const userUpdate = await userCollection.updateOne(
+            { email: userEmail },
+            { $set: { role: "rider" } },
+          );
+
+          console.log(
+            `Updated user ${userEmail} to rider. Modified: ${userUpdate.modifiedCount}`,
+          );
+
+          res.send({
+            success: true,
+            message: "Rider approved and role updated",
+            appUpdate,
+            userUpdate,
+          });
+        } catch (error) {
+          res.status(500).send({ message: error.message });
         }
-
-        const userEmail = application.email;
-
-        // ২. রাইডার অ্যাপ্লিকেশনের স্ট্যাটাস 'active' করা
-        const appUpdate = await ridersCollection.updateOne(filter, {
-          $set: { status: "active" },
-        });
-
-        // ৩. মেইন ইউজার কালেকশনে রোল আপডেট করা
-        // আমরা ইমেইল দিয়ে আপডেট করছি এবং নিশ্চিত করছি যেন স্পেলিং এরর না হয়
-        const userUpdate = await userCollection.updateOne(
-          { email: userEmail },
-          { $set: { role: "rider" } },
-        );
-
-        console.log(
-          `Updated user ${userEmail} to rider. Modified: ${userUpdate.modifiedCount}`,
-        );
-
-        res.send({
-          success: true,
-          message: "Rider approved and role updated",
-          appUpdate,
-          userUpdate,
-        });
-      } catch (error) {
-        res.status(500).send({ message: error.message });
-      }
-    });
+      },
+    );
 
     // ২. Reject Rider (Delete application)
     app.delete("/riders/reject/:id", async (req, res) => {
@@ -408,6 +458,63 @@ app.patch("/users/role/:id", verifyFBToken, verifyAdmin, async (req, res) => {
       const result = await ridersCollection.updateOne(filter, updateDoc);
       res.send(result);
     });
+
+    // ১. পার্সেলের ডিস্ট্রিক্ট অনুযায়ী রাইডার খোঁজা
+  app.get(
+  "/users/riders/:district",
+  verifyFBToken,
+  verifyAdmin,
+  async (req, res) => {
+    const district = req.params.district;
+    const query = {
+      status: "active",
+      district: { $regex: `^${district}$`, $options: "i" }, 
+    };
+    const riders = await ridersCollection.find(query).toArray();
+    res.send(riders);
+  }
+);
+
+
+    // ২. পার্সেলে রাইডার আপডেট করা
+   app.patch("/parcels/assign/:id", verifyFBToken, verifyAdmin, async (req, res) => {
+    const id = req.params.id;
+    const { riderId, riderEmail, riderName, approximateDeliveryDate } = req.body;
+
+    // ১. পার্সেলের তথ্য আপডেট (Status: in-transit)
+    const parcelFilter = { _id: new ObjectId(id) };
+    const parcelUpdate = {
+        $set: {
+            riderId,
+            riderEmail,
+            riderName,
+            approximateDeliveryDate,
+            deliveryStatus: "in-transit" // আপনি যেটা চাইলেন
+        },
+    };
+
+    // ২. রাইডারের কাজের স্ট্যাটাস আপডেট (Status: in delivery)
+    const riderFilter = { _id: new ObjectId(riderId) };
+    const riderUpdate = {
+        $set: { workStatus: "in delivery" }
+    };
+
+    try {
+        // দুটি আপডেট একসাথে চালানো হচ্ছে
+        const [parcelResult, riderResult] = await Promise.all([
+            parcelCollection.updateOne(parcelFilter, parcelUpdate),
+            userCollection.updateOne(riderFilter, riderUpdate)
+        ]);
+
+        if (parcelResult.modifiedCount > 0) {
+            res.send({ success: true, message: "Rider assigned and status updated" });
+        } else {
+            res.status(404).send({ message: "Parcel not found" });
+        }
+    } catch (error) {
+        res.status(500).send({ message: "Update failed", error });
+    }
+});
 
     // Ping confirmation
     await client.db("admin").command({ ping: 1 });
