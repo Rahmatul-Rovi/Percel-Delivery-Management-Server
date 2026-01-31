@@ -67,6 +67,16 @@ async function run() {
       }
     };
 
+    const verifyAdmin = async(req, res, next) => {
+      const email = req.decoded.email;
+      const query  = {email};
+      const user = await userCollection.findOne(query);
+      if(!user || user.role !== "admin"){
+        return res.status(403).send({message: "Forbidden Access"});
+      }
+      next();
+    }
+
     // ------------------------------------------------
     //     🚨 Admin Related
     // ------------------------------------------------
@@ -117,7 +127,7 @@ app.get("/users/role/:email", verifyFBToken, async (req, res) => {
 });
 
 // 2. Role Update (Security added)
-app.patch("/users/role/:id", async (req, res) => {
+app.patch("/users/role/:id", verifyFBToken, verifyAdmin, async (req, res) => {
   const id = req.params.id;
   const { role } = req.body;
   
@@ -322,7 +332,7 @@ app.patch("/users/role/:id", async (req, res) => {
     });
 
     //Pending Riders data load API
-    app.get("/riders/pending", verifyFBToken, async (req, res) => {
+    app.get("/riders/pending", verifyFBToken, verifyAdmin, async (req, res) => {
       try {
         const query = { status: "pending" };
         const result = await ridersCollection.find(query).toArray();
@@ -333,7 +343,7 @@ app.patch("/users/role/:id", async (req, res) => {
     });
 
     // ১. Approve Rider (Status update)
-    app.patch("/riders/approve/:id", async (req, res) => {
+    app.patch("/riders/approve/:id", verifyFBToken, verifyAdmin, async (req, res) => {
       try {
         const id = req.params.id;
         const filter = { _id: new ObjectId(id) };
@@ -382,7 +392,7 @@ app.patch("/users/role/:id", async (req, res) => {
     });
 
     // Loading Active Riders Data
-    app.get("/riders/active", async (req, res) => {
+    app.get("/riders/active", verifyFBToken, verifyAdmin, async (req, res) => {
       const query = { status: "active" };
       const result = await ridersCollection.find(query).toArray();
       res.send(result);
