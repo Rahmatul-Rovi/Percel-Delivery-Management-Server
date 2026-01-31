@@ -321,8 +321,8 @@ app.patch("/users/role/:id", async (req, res) => {
       res.send(result);
     });
 
-    // ১. পেন্ডিং রাইডারদের ডাটা লোড করার এপিআই
-    app.get("/riders/pending", async (req, res) => {
+    //Pending Riders data load API
+    app.get("/riders/pending", verifyFBToken, async (req, res) => {
       try {
         const query = { status: "pending" };
         const result = await ridersCollection.find(query).toArray();
@@ -338,7 +338,7 @@ app.patch("/users/role/:id", async (req, res) => {
         const id = req.params.id;
         const filter = { _id: new ObjectId(id) };
 
-        // ১. রাইডার অ্যাপ্লিকেশন থেকে ডাটা নিন
+        // Rider Application Data
         const application = await ridersCollection.findOne(filter);
         if (!application) {
           return res.status(404).send({ message: "Application not found" });
