@@ -67,11 +67,24 @@ async function run() {
       }
     };
 
+    // -------Verify for admin--------
     const verifyAdmin = async (req, res, next) => {
       const email = req.decoded.email;
       const query = { email };
       const user = await userCollection.findOne(query);
       if (!user || user.role !== "admin") {
+        return res.status(403).send({ message: "Forbidden Access" });
+      }
+      next();
+    };
+
+    //-----Verify for Rider-------
+
+     const verifyRider = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email };
+      const user = await userCollection.findOne(query);
+      if (!user || user.role !== "rider") {
         return res.status(403).send({ message: "Forbidden Access" });
       }
       next();
@@ -233,7 +246,7 @@ async function run() {
     });
 
     // এই API দিয়ে একজন রাইডার তার জন্য অ্যাসাইন করা সব কাজ দেখতে পাবে
-    app.get("/rider-parcels/:email", verifyFBToken, async (req, res) => {
+    app.get("/rider-parcels/:email", verifyFBToken, verifyRider, async (req, res) => {
       try {
         const email = req.params.email;
 
@@ -254,6 +267,73 @@ async function run() {
         res.status(500).send({ message: "Error fetching rider tasks", error });
       }
     });
+
+    // এই API দিয়ে রাইডার তার কমপ্লিট করা ডেলিভারিগুলো দেখবে
+   // ১. রাইডারের পেন্ডিং ক্যাশআউট ব্যালেন্স এবং সম্পন্ন কাজগুলো দেখা
+app.get("/completed-parcels/:email", verifyFBToken, verifyRider, async (req, res) => {
+  try {
+    const email = req.params.email;
+    const query = { 
+      riderEmail: email, 
+      deliveryStatus: { $in: ["delivered", "Processing"] } // আপনার ডাটাবেস অনুযায়ী Processing যোগ করলাম
+    };
+    
+    const result = await parcelCollection.find(query).toArray();
+
+    const parcelsWithEarnings = result.map(parcel => {
+      // আপনার ডাটাবেসে ফিল্ডের নাম 'deliveryCost'
+      const cost = Number(parcel.deliveryCost || 0); 
+      
+      let rate = 0.3; 
+      if (parcel.senderDistrict?.toLowerCase() === parcel.receiverDistrict?.toLowerCase()) {
+        rate = 0.8; 
+      }
+
+      return { 
+        ...parcel, 
+        deliveryFee: cost, // ফ্রন্টএন্ডের সুবিধার জন্য এটি deliveryFee নামে পাঠাচ্ছি
+        earnings: cost * rate 
+      };
+    });
+
+    res.send(parcelsWithEarnings);
+  } catch (error) {
+    res.status(500).send(error);
+  }
+});
+
+// ২. ক্যাশআউট রিকোয়েস্ট এপিআই
+app.post("/cashout", verifyFBToken, verifyRider, async (req, res) => {
+  try {
+    const { parcelId, riderEmail, amount } = req.body;
+
+    // চেক করা যে অলরেডি ক্যাশআউট হয়েছে কি না
+    const parcel = await parcelCollection.findOne({ _id: new ObjectId(parcelId) });
+    if (parcel.isCashedOut) {
+      return res.status(400).send({ message: "Already cashed out!" });
+    }
+
+    // পার্সেলে ক্যাশআউট স্ট্যাটাস আপডেট করা
+    await parcelCollection.updateOne(
+      { _id: new ObjectId(parcelId) },
+      { $set: { isCashedOut: true } }
+    );
+
+    // উইথড্র রেকর্ড রাখা (ভবিষ্যতে অ্যাডমিন প্যানেলে দেখার জন্য)
+    const withdrawalDoc = {
+      parcelId,
+      riderEmail,
+      amount,
+      date: new Date(),
+      status: "completed"
+    };
+    const result = await db.collection("withdrawals").insertOne(withdrawalDoc);
+    
+    res.send(result);
+  } catch (error) {
+    res.status(500).send({ message: "Cashout failed" });
+  }
+});
 
     // Get parcels for assignment (Paid and Processing)
     app.get(
