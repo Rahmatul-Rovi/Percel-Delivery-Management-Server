@@ -100,56 +100,55 @@ async function run() {
      * Description: Checks the 'users' collection and returns the role.
      * Security: Uses verifyFBToken to ensure the request is from a logged-in user.
      */
-   app.get("/users/role/:email", verifyFBToken, async (req, res) => {
-  try {
-    const email = req.params.email;
-    const query = { email: email };
-    const user = await userCollection.findOne(query);
+    app.get("/users/role/:email", verifyFBToken, async (req, res) => {
+      try {
+        const email = req.params.email;
+        const query = { email: email };
+        const user = await userCollection.findOne(query);
 
-    // ডাটাবেসে রোল না থাকলে 'user' হিসেবে পাঠান
-    res.send({
-      role: user?.role || "user",
+        // ডাটাবেসে রোল না থাকলে 'user' হিসেবে পাঠান
+        res.send({
+          role: user?.role || "user",
+        });
+      } catch (error) {
+        res.status(500).send({ message: "Internal Server Error" });
+      }
     });
-  } catch (error) {
-    res.status(500).send({ message: "Internal Server Error" });
-  }
-});
 
+    // ১. ইউজার রোল চেক করার API (DashBoard এ অ্যাডমিন অপশন দেখানোর জন্য মেইন কি)
+    app.get("/users/role/:email", verifyFBToken, async (req, res) => {
+      const email = req.params.email;
+      const user = await userCollection.findOne({ email });
+      res.send({ role: user?.role || "user" });
+    });
 
-// ১. ইউজার রোল চেক করার API (DashBoard এ অ্যাডমিন অপশন দেখানোর জন্য মেইন কি)
-app.get("/users/role/:email", verifyFBToken, async (req, res) => {
-    const email = req.params.email;
-    const user = await userCollection.findOne({ email });
-    res.send({ role: user?.role || "user" });
-});
-
-// ২. ইউজার সেভ করা (Social Login বা Register এর সময়)
-app.post("/users", async (req, res) => {
-    const user = req.body;
-    const query = { email: user.email };
-    const existingUser = await userCollection.findOne(query);
-    if (existingUser) {
+    // ২. ইউজার সেভ করা (Social Login বা Register এর সময়)
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const query = { email: user.email };
+      const existingUser = await userCollection.findOne(query);
+      if (existingUser) {
         return res.send({ message: "User already exists", insertedId: null });
-    }
-    const result = await userCollection.insertOne({
+      }
+      const result = await userCollection.insertOne({
         ...user,
-        role: user.role || 'user', // ডিফল্ট রোল ইউজার
-        timestamp: new Date()
+        role: user.role || "user", // ডিফল্ট রোল ইউজার
+        timestamp: new Date(),
+      });
+      res.send(result);
     });
-    res.send(result);
-});
 
-// ৩. পার্সেল বুকিং API
-app.post("/parcels", verifyFBToken, async (req, res) => {
-    const newParcel = req.body;
-    // এখানে সার্ভার সাইড থেকে স্ট্যাটাস সেট করে দেওয়া ভালো
-    const result = await parcelCollection.insertOne({
+    // ৩. পার্সেল বুকিং API
+    app.post("/parcels", verifyFBToken, async (req, res) => {
+      const newParcel = req.body;
+      // এখানে সার্ভার সাইড থেকে স্ট্যাটাস সেট করে দেওয়া ভালো
+      const result = await parcelCollection.insertOne({
         ...newParcel,
         deliveryStatus: "Processing",
-        paymentStatus: "unpaid"
+        paymentStatus: "unpaid",
+      });
+      res.status(201).send(result);
     });
-    res.status(201).send(result);
-});
 
     // 2. Role Update (Security added)
     app.patch(
@@ -230,6 +229,29 @@ app.post("/parcels", verifyFBToken, async (req, res) => {
         res.send(result);
       } catch (error) {
         res.status(500).send({ message: "Internal Server Error" });
+      }
+    });
+
+    // এই API দিয়ে একজন রাইডার তার জন্য অ্যাসাইন করা সব কাজ দেখতে পাবে
+    app.get("/rider-parcels/:email", verifyFBToken, async (req, res) => {
+      try {
+        const email = req.params.email;
+
+        // ১. টোকেনের ইমেইল আর রিকোয়েস্টের ইমেইল মিলছে কি না চেক করা (Security)
+        if (req.user.email !== email) {
+          return res.status(403).send({ message: "Forbidden Access" });
+        }
+
+        const query = {
+          riderEmail: email, // রাইডারের ইমেইল দিয়ে সার্চ
+          // ডিলিভারি স্ট্যাটাস যেটা এখনো 'Delivered' বা 'Cancelled' হয়নি
+          deliveryStatus: { $in: ["Processing", "in-transit"] },
+        };
+
+        const result = await parcelCollection.find(query).toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Error fetching rider tasks", error });
       }
     });
 
@@ -460,61 +482,80 @@ app.post("/parcels", verifyFBToken, async (req, res) => {
     });
 
     // ১. পার্সেলের ডিস্ট্রিক্ট অনুযায়ী রাইডার খোঁজা
-  app.get(
-  "/users/riders/:district",
-  verifyFBToken,
-  verifyAdmin,
-  async (req, res) => {
-    const district = req.params.district;
-    const query = {
-      status: "active",
-      district: { $regex: `^${district}$`, $options: "i" }, 
-    };
-    const riders = await ridersCollection.find(query).toArray();
-    res.send(riders);
-  }
-);
-
+    app.get(
+      "/users/riders/:district",
+      verifyFBToken,
+      verifyAdmin,
+      async (req, res) => {
+        const district = req.params.district;
+        const query = {
+          status: "active",
+          district: { $regex: `^${district}$`, $options: "i" },
+        };
+        const riders = await ridersCollection.find(query).toArray();
+        res.send(riders);
+      },
+    );
 
     // ২. পার্সেলে রাইডার আপডেট করা
-   app.patch("/parcels/assign/:id", verifyFBToken, verifyAdmin, async (req, res) => {
-    const id = req.params.id;
-    const { riderId, riderEmail, riderName, approximateDeliveryDate } = req.body;
+    app.patch(
+      "/parcels/assign/:id",
+      verifyFBToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const { riderId, riderEmail, riderName, approximateDeliveryDate } =
+          req.body;
 
-    // ১. পার্সেলের তথ্য আপডেট (Status: in-transit)
-    const parcelFilter = { _id: new ObjectId(id) };
-    const parcelUpdate = {
-        $set: {
+        // ১. পার্সেলের তথ্য আপডেট (Status: in-transit)
+        const parcelFilter = { _id: new ObjectId(id) };
+        const parcelUpdate = {
+          $set: {
             riderId,
             riderEmail,
             riderName,
             approximateDeliveryDate,
-            deliveryStatus: "in-transit" // আপনি যেটা চাইলেন
-        },
-    };
+            deliveryStatus: "in-transit", // আপনি যেটা চাইলেন
+          },
+        };
 
-    // ২. রাইডারের কাজের স্ট্যাটাস আপডেট (Status: in delivery)
-    const riderFilter = { _id: new ObjectId(riderId) };
-    const riderUpdate = {
-        $set: { workStatus: "in delivery" }
-    };
+        // ২. রাইডারের কাজের স্ট্যাটাস আপডেট (Status: in delivery)
+        const riderFilter = { _id: new ObjectId(riderId) };
+        const riderUpdate = {
+          $set: { workStatus: "in delivery" },
+        };
 
-    try {
-        // দুটি আপডেট একসাথে চালানো হচ্ছে
-        const [parcelResult, riderResult] = await Promise.all([
+        try {
+          // দুটি আপডেট একসাথে চালানো হচ্ছে
+          const [parcelResult, riderResult] = await Promise.all([
             parcelCollection.updateOne(parcelFilter, parcelUpdate),
-            userCollection.updateOne(riderFilter, riderUpdate)
-        ]);
+            userCollection.updateOne(riderFilter, riderUpdate),
+          ]);
 
-        if (parcelResult.modifiedCount > 0) {
-            res.send({ success: true, message: "Rider assigned and status updated" });
-        } else {
+          if (parcelResult.modifiedCount > 0) {
+            res.send({
+              success: true,
+              message: "Rider assigned and status updated",
+            });
+          } else {
             res.status(404).send({ message: "Parcel not found" });
+          }
+        } catch (error) {
+          res.status(500).send({ message: "Update failed", error });
         }
-    } catch (error) {
-        res.status(500).send({ message: "Update failed", error });
-    }
-});
+      },
+    );
+
+    app.patch("/parcels/status/:id", verifyFBToken, async (req, res) => {
+      const id = req.params.id;
+      const { status } = req.body;
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: { deliveryStatus: status },
+      };
+      const result = await parcelCollection.updateOne(query, updateDoc);
+      res.send(result);
+    });
 
     // Ping confirmation
     await client.db("admin").command({ ping: 1 });
