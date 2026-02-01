@@ -238,7 +238,7 @@ async function run() {
         const email = req.params.email;
 
         // ১. টোকেনের ইমেইল আর রিকোয়েস্টের ইমেইল মিলছে কি না চেক করা (Security)
-        if (req.user.email !== email) {
+        if (req.decoded.email !== email) {
           return res.status(403).send({ message: "Forbidden Access" });
         }
 
