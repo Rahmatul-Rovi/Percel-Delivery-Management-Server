@@ -80,7 +80,7 @@ async function run() {
 
     //-----Verify for Rider-------
 
-     const verifyRider = async (req, res, next) => {
+    const verifyRider = async (req, res, next) => {
       const email = req.decoded.email;
       const query = { email };
       const user = await userCollection.findOne(query);
@@ -246,94 +246,113 @@ async function run() {
     });
 
     // এই API দিয়ে একজন রাইডার তার জন্য অ্যাসাইন করা সব কাজ দেখতে পাবে
-    app.get("/rider-parcels/:email", verifyFBToken, verifyRider, async (req, res) => {
-      try {
-        const email = req.params.email;
+    app.get(
+      "/rider-parcels/:email",
+      verifyFBToken,
+      verifyRider,
+      async (req, res) => {
+        try {
+          const email = req.params.email;
 
-        // ১. টোকেনের ইমেইল আর রিকোয়েস্টের ইমেইল মিলছে কি না চেক করা (Security)
-        if (req.decoded.email !== email) {
-          return res.status(403).send({ message: "Forbidden Access" });
+          // ১. টোকেনের ইমেইল আর রিকোয়েস্টের ইমেইল মিলছে কি না চেক করা (Security)
+          if (req.decoded.email !== email) {
+            return res.status(403).send({ message: "Forbidden Access" });
+          }
+
+          const query = {
+            riderEmail: email, // রাইডারের ইমেইল দিয়ে সার্চ
+            // ডিলিভারি স্ট্যাটাস যেটা এখনো 'Delivered' বা 'Cancelled' হয়নি
+            deliveryStatus: { $in: ["Processing", "in-transit"] },
+          };
+
+          const result = await parcelCollection.find(query).toArray();
+          res.send(result);
+        } catch (error) {
+          res
+            .status(500)
+            .send({ message: "Error fetching rider tasks", error });
         }
-
-        const query = {
-          riderEmail: email, // রাইডারের ইমেইল দিয়ে সার্চ
-          // ডিলিভারি স্ট্যাটাস যেটা এখনো 'Delivered' বা 'Cancelled' হয়নি
-          deliveryStatus: { $in: ["Processing", "in-transit"] },
-        };
-
-        const result = await parcelCollection.find(query).toArray();
-        res.send(result);
-      } catch (error) {
-        res.status(500).send({ message: "Error fetching rider tasks", error });
-      }
-    });
-
-    // এই API দিয়ে রাইডার তার কমপ্লিট করা ডেলিভারিগুলো দেখবে
-   // ১. রাইডারের পেন্ডিং ক্যাশআউট ব্যালেন্স এবং সম্পন্ন কাজগুলো দেখা
-app.get("/completed-parcels/:email", verifyFBToken, verifyRider, async (req, res) => {
-  try {
-    const email = req.params.email;
-    const query = { 
-      riderEmail: email, 
-      deliveryStatus: { $in: ["delivered", "Processing"] } // আপনার ডাটাবেস অনুযায়ী Processing যোগ করলাম
-    };
-    
-    const result = await parcelCollection.find(query).toArray();
-
-    const parcelsWithEarnings = result.map(parcel => {
-      // আপনার ডাটাবেসে ফিল্ডের নাম 'deliveryCost'
-      const cost = Number(parcel.deliveryCost || 0); 
-      
-      let rate = 0.3; 
-      if (parcel.senderDistrict?.toLowerCase() === parcel.receiverDistrict?.toLowerCase()) {
-        rate = 0.8; 
-      }
-
-      return { 
-        ...parcel, 
-        deliveryFee: cost, // ফ্রন্টএন্ডের সুবিধার জন্য এটি deliveryFee নামে পাঠাচ্ছি
-        earnings: cost * rate 
-      };
-    });
-
-    res.send(parcelsWithEarnings);
-  } catch (error) {
-    res.status(500).send(error);
-  }
-});
-
-// ২. ক্যাশআউট রিকোয়েস্ট এপিআই
-app.post("/cashout", verifyFBToken, verifyRider, async (req, res) => {
-  try {
-    const { parcelId, riderEmail, amount } = req.body;
-
-    // চেক করা যে অলরেডি ক্যাশআউট হয়েছে কি না
-    const parcel = await parcelCollection.findOne({ _id: new ObjectId(parcelId) });
-    if (parcel.isCashedOut) {
-      return res.status(400).send({ message: "Already cashed out!" });
-    }
-
-    // পার্সেলে ক্যাশআউট স্ট্যাটাস আপডেট করা
-    await parcelCollection.updateOne(
-      { _id: new ObjectId(parcelId) },
-      { $set: { isCashedOut: true } }
+      },
     );
 
-    // উইথড্র রেকর্ড রাখা (ভবিষ্যতে অ্যাডমিন প্যানেলে দেখার জন্য)
-    const withdrawalDoc = {
-      parcelId,
-      riderEmail,
-      amount,
-      date: new Date(),
-      status: "completed"
-    };
-    const result = await db.collection("withdrawals").insertOne(withdrawalDoc);
-    
-    res.send(result);
-  } catch (error) {
-    res.status(500).send({ message: "Cashout failed" });
-  }
-});
+    // এই API দিয়ে রাইডার তার কমপ্লিট করা ডেলিভারিগুলো দেখবে
+    // ১. রাইডারের পেন্ডিং ক্যাশআউট ব্যালেন্স এবং সম্পন্ন কাজগুলো দেখা
+    app.get(
+      "/completed-parcels/:email",
+      verifyFBToken,
+      verifyRider,
+      async (req, res) => {
+        try {
+          const email = req.params.email;
+          const query = {
+            riderEmail: email,
+            deliveryStatus: { $in: ["delivered", "Processing"] }, // আপনার ডাটাবেস অনুযায়ী Processing যোগ করলাম
+          };
+
+          const result = await parcelCollection.find(query).toArray();
+
+          const parcelsWithEarnings = result.map((parcel) => {
+            // আপনার ডাটাবেসে ফিল্ডের নাম 'deliveryCost'
+            const cost = Number(parcel.deliveryCost || 0);
+
+            let rate = 0.3;
+            if (
+              parcel.senderDistrict?.toLowerCase() ===
+              parcel.receiverDistrict?.toLowerCase()
+            ) {
+              rate = 0.8;
+            }
+
+            return {
+              ...parcel,
+              deliveryFee: cost, // ফ্রন্টএন্ডের সুবিধার জন্য এটি deliveryFee নামে পাঠাচ্ছি
+              earnings: cost * rate,
+            };
+          });
+
+          res.send(parcelsWithEarnings);
+        } catch (error) {
+          res.status(500).send(error);
+        }
+      },
+    );
+
+    // ২. ক্যাশআউট রিকোয়েস্ট এপিআই
+    app.post("/cashout", verifyFBToken, verifyRider, async (req, res) => {
+      try {
+        const { parcelId, riderEmail, amount } = req.body;
+
+        // চেক করা যে অলরেডি ক্যাশআউট হয়েছে কি না
+        const parcel = await parcelCollection.findOne({
+          _id: new ObjectId(parcelId),
+        });
+        if (parcel.isCashedOut) {
+          return res.status(400).send({ message: "Already cashed out!" });
+        }
+
+        // পার্সেলে ক্যাশআউট স্ট্যাটাস আপডেট করা
+        await parcelCollection.updateOne(
+          { _id: new ObjectId(parcelId) },
+          { $set: { isCashedOut: true } },
+        );
+
+        // উইথড্র রেকর্ড রাখা (ভবিষ্যতে অ্যাডমিন প্যানেলে দেখার জন্য)
+        const withdrawalDoc = {
+          parcelId,
+          riderEmail,
+          amount,
+          date: new Date(),
+          status: "completed",
+        };
+        const result = await db
+          .collection("withdrawals")
+          .insertOne(withdrawalDoc);
+
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Cashout failed" });
+      }
+    });
 
     // Get parcels for assignment (Paid and Processing)
     app.get(
@@ -349,6 +368,52 @@ app.post("/cashout", verifyFBToken, verifyRider, async (req, res) => {
         res.send(result);
       },
     );
+
+    // রাইডার যখন পার্সেল পিক-আপ করবে
+    app.patch("/parcel/pickup/:id", verifyFBToken, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: { deliveryStatus: "picked" },
+        $push: {
+          trackingHistory: {
+            status: "Picked Up",
+            time: new Date().toLocaleString(),
+            message: "Rider has picked up the parcel from sender.",
+          },
+        },
+      };
+      const result = await parcelCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
+    // যে কেউ ট্র্যাকিং আইডি দিয়ে পার্সেল ট্র্যাক করতে পারবে
+    app.get("/track-parcel/:trackingId", async (req, res) => {
+      try {
+        const trackingId = req.params.trackingId;
+        const query = { trackingId: trackingId };
+
+        // আমরা শুধু প্রয়োজনীয় তথ্যগুলোই পাঠাবো নিরাপত্তার জন্য
+        const projection = {
+          projection: {
+            receiverName: 1,
+            deliveryStatus: 1,
+            trackingHistory: 1,
+            senderDistrict: 1,
+            receiverDistrict: 1,
+          },
+        };
+
+        const result = await parcelCollection.findOne(query, projection);
+
+        if (!result) {
+          return res.status(404).send({ message: "Invalid Tracking ID" });
+        }
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Server error" });
+      }
+    });
 
     const { ObjectId } = require("mongodb");
     // 1. Initialize Payment Collection (Add this near your other collections)
