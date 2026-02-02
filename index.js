@@ -42,6 +42,7 @@ async function run() {
     const parcelCollection = db.collection("parcels");
     const userCollection = db.collection("users"); // User Collection
     const ridersCollection = db.collection("riders"); //rider Collection
+    const reviewCollection = db.collection("reviews");
 
     // Custom middlewares
     const verifyFBToken = async (req, res, next) => {
@@ -536,6 +537,45 @@ async function run() {
       res.send(result);
     });
 
+    app.patch("/parcel/pickup/:id", async (req, res) => {
+      const id = req.params.id;
+      const updateDoc = {
+        $set: { deliveryStatus: "On The Way" }, // স্ট্যাটাস আপডেট
+        $push: {
+          trackingHistory: {
+            status: "Picked Up",
+            time: new Date().toLocaleString(),
+            message:
+              "Rider has collected the package and is on the way to delivery.",
+          },
+        },
+      };
+      const result = await parcelCollection.updateOne(
+        { _id: new ObjectId(id) },
+        updateDoc,
+      );
+      res.send(result);
+    });
+
+    app.patch("/parcel/deliver/:id", async (req, res) => {
+      const id = req.params.id;
+      const updateDoc = {
+        $set: { deliveryStatus: "delivered" },
+        $push: {
+          trackingHistory: {
+            status: "Delivered",
+            time: new Date().toLocaleString(),
+            message: "Parcel successfully handed over to the recipient.",
+          },
+        },
+      };
+      const result = await parcelCollection.updateOne(
+        { _id: new ObjectId(id) },
+        updateDoc,
+      );
+      res.send(result);
+    });
+
     //Riders
     app.post("/riders", async (req, res) => {
       const rider = req.body;
@@ -699,6 +739,23 @@ async function run() {
         $set: { deliveryStatus: status },
       };
       const result = await parcelCollection.updateOne(query, updateDoc);
+      res.send(result);
+    });
+
+    // ইউজারের দেওয়া রিভিউ সেভ করার এপিআই
+    app.post("/reviews", async (req, res) => {
+      const review = req.body; // { riderEmail, rating, comment, userName, userImage, date }
+      const result = await reviewCollection.insertOne(review);
+
+      // বোনাস: রাইডারের প্রোফাইলে টোটাল রিভিউ কাউন্ট আপডেট করতে পারো (ঐচ্ছিক)
+      res.send(result);
+    });
+
+    // ৩. রাইডার অনুযায়ী রিভিউ পাওয়ার API (রাইডারের প্রোফাইলে দেখানোর জন্য)
+    app.get("/reviews/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { riderEmail: email };
+      const result = await reviewCollection.find(query).toArray();
       res.send(result);
     });
 
