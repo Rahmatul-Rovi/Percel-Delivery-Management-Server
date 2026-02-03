@@ -79,6 +79,38 @@ async function run() {
       next();
     };
 
+    // ১. অ্যাডমিন স্ট্যাটিস্টিক্স এপিআই
+app.get("/admin-stats", verifyFBToken, verifyAdmin, async (req, res) => {
+  try {
+    // বুকিং ট্রেন্ডস (তারিখ অনুযায়ী গ্রুপ করা)
+    const bookingTrends = await parcelCollection.aggregate([
+      {
+        $group: {
+          _id: { $substr: ["$creationDate", 0, 10] }, // "DD/MM/YYYY" ফরম্যাট থেকে তারিখ নেওয়া
+          bookings: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } },
+      { $limit: 7 } // গত ৭ দিনের ডাটা
+    ]).toArray();
+
+    // ডিস্ট্রিক্ট অনুযায়ী তুলনা (Comparison)
+    const districtStats = await parcelCollection.aggregate([
+      {
+        $group: {
+          _id: "$senderDistrict",
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } }
+    ]).toArray();
+
+    res.send({ bookingTrends, districtStats });
+  } catch (error) {
+    res.status(500).send({ message: "Error fetching stats", error });
+  }
+});
+
     //-----Verify for Rider-------
 
     const verifyRider = async (req, res, next) => {
