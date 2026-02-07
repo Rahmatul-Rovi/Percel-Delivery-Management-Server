@@ -196,7 +196,7 @@ async function run() {
       res.send({ totalBookings: count });
     });
 
-    // ২. প্রোফাইল পিকচার আপডেট করার জন্য
+    // For updating Profile Picture
     app.patch("/users/update", verifyFBToken, async (req, res) => {
       const { email, photoURL } = req.body;
       const filter = { email: email };
@@ -205,10 +205,10 @@ async function run() {
       res.send(result);
     });
 
-    // ৩. পার্সেল বুকিং API
+    // Parcel Booking API
     app.post("/parcels", verifyFBToken, async (req, res) => {
       const newParcel = req.body;
-      // এখানে সার্ভার সাইড থেকে স্ট্যাটাস সেট করে দেওয়া ভালো
+      // Stats set from server side
       const result = await parcelCollection.insertOne({
         ...newParcel,
         deliveryStatus: "Processing",
@@ -241,23 +241,10 @@ async function run() {
       },
     );
     // ------------------------------------------------
-    // 🚀 USER RELATED APIS (Eigulo chilo na tai error dito)
+    // 🚀 USER RELATED APIS 
     // ------------------------------------------------
 
-    // app.post("/users", async (req, res) => {
-    //   const email = req.body.email;
-    //   const userExists = await userCollection.findOne({ email });
-    //   if (userExists) {
-    //     return res
-    //       .status(200)
-    //       .send({ message: "User already exists", insertedId: false });
-    //   }
-    //   const user = req.body;
-    //   const result = await userCollection.insertOne(user);
-    //   res.send(result);
-    // });
-
-    // User data save kora (Login er somoy dorkar)
+    // User data save  (Login User)
     app.post("/users", async (req, res) => {
       const user = req.body;
       const query = { email: user.email };
@@ -271,7 +258,7 @@ async function run() {
       res.send(result);
     });
 
-    // Shob users der dekha (pore lagbe)
+    // Show all users
     app.get("/users", async (req, res) => {
       const result = await userCollection.find().toArray();
       res.send(result);
@@ -281,7 +268,7 @@ async function run() {
     // 📦 PARCEL RELATED APIS
     // ------------------------------------------------
 
-    // Shob parcel ene user email diye filter kora
+    // All parcels filter with user email
     app.get("/parcels", verifyFBToken, async (req, res) => {
       try {
         const email = req.query.email;
@@ -299,7 +286,7 @@ async function run() {
       }
     });
 
-    // এই API দিয়ে একজন রাইডার তার জন্য অ্যাসাইন করা সব কাজ দেখতে পাবে
+    // Rider can show assigned parcel by email with this API
     app.get(
       "/rider-parcels/:email",
       verifyFBToken,
@@ -308,14 +295,14 @@ async function run() {
         try {
           const email = req.params.email;
 
-          // ১. টোকেনের ইমেইল আর রিকোয়েস্টের ইমেইল মিলছে কি না চেক করা (Security)
+          // Tokens email and request email match  (Security)
           if (req.decoded.email !== email) {
             return res.status(403).send({ message: "Forbidden Access" });
           }
 
           const query = {
-            riderEmail: email, // রাইডারের ইমেইল দিয়ে সার্চ
-            // ডিলিভারি স্ট্যাটাস যেটা এখনো 'Delivered' বা 'Cancelled' হয়নি
+            riderEmail: email, 
+            // Delivery Status which is not 'Delivered' or 'Cancelled' 
             deliveryStatus: { $in: ["Processing", "in-transit"] },
           };
 
@@ -329,8 +316,8 @@ async function run() {
       },
     );
 
-    // এই API দিয়ে রাইডার তার কমপ্লিট করা ডেলিভারিগুলো দেখবে
-    // ১. রাইডারের পেন্ডিং ক্যাশআউট ব্যালেন্স এবং সম্পন্ন কাজগুলো দেখা
+    // With this  API Rider  show completed parcel
+    // Riders pending cashout balence and completed parcel list 
     app.get(
       "/completed-parcels/:email",
       verifyFBToken,
