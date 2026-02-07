@@ -650,13 +650,12 @@ async function run() {
 
           const userEmail = application.email;
 
-          // ২. রাইডার অ্যাপ্লিকেশনের স্ট্যাটাস 'active' করা
+          // Rider Application Status Active Update
           const appUpdate = await ridersCollection.updateOne(filter, {
             $set: { status: "active" },
           });
 
-          // ৩. মেইন ইউজার কালেকশনে রোল আপডেট করা
-          // আমরা ইমেইল দিয়ে আপডেট করছি এবং নিশ্চিত করছি যেন স্পেলিং এরর না হয়
+          // Main User Collection Role Update
           const userUpdate = await userCollection.updateOne(
             { email: userEmail },
             { $set: { role: "rider" } },
@@ -678,7 +677,7 @@ async function run() {
       },
     );
 
-    // ২. Reject Rider (Delete application)
+    //  Reject Rider (Delete application)
     app.delete("/riders/reject/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -704,7 +703,7 @@ async function run() {
       res.send(result);
     });
 
-    // ১. পার্সেলের ডিস্ট্রিক্ট অনুযায়ী রাইডার খোঁজা
+    // Finding Riders with parcels District
     app.get(
       "/users/riders/:district",
       verifyFBToken,
@@ -720,7 +719,7 @@ async function run() {
       },
     );
 
-    // ২. পার্সেলে রাইডার আপডেট করা
+    // Update Riders with Parcels
     app.patch(
       "/parcels/assign/:id",
       verifyFBToken,
@@ -730,7 +729,7 @@ async function run() {
         const { riderId, riderEmail, riderName, approximateDeliveryDate } =
           req.body;
 
-        // ১. পার্সেলের তথ্য আপডেট (Status: in-transit)
+        // Parcels Data Update (Status: in-transit)
         const parcelFilter = { _id: new ObjectId(id) };
         const parcelUpdate = {
           $set: {
@@ -738,18 +737,17 @@ async function run() {
             riderEmail,
             riderName,
             approximateDeliveryDate,
-            deliveryStatus: "in-transit", // আপনি যেটা চাইলেন
+            deliveryStatus: "in-transit", 
           },
         };
 
-        // ২. রাইডারের কাজের স্ট্যাটাস আপডেট (Status: in delivery)
+        // Riders Status Update (Status: in delivery)
         const riderFilter = { _id: new ObjectId(riderId) };
         const riderUpdate = {
           $set: { workStatus: "in delivery" },
         };
 
         try {
-          // দুটি আপডেট একসাথে চালানো হচ্ছে
           const [parcelResult, riderResult] = await Promise.all([
             parcelCollection.updateOne(parcelFilter, parcelUpdate),
             userCollection.updateOne(riderFilter, riderUpdate),
@@ -780,16 +778,14 @@ async function run() {
       res.send(result);
     });
 
-    // ইউজারের দেওয়া রিভিউ সেভ করার এপিআই
+    // User Review API Saved
     app.post("/reviews", async (req, res) => {
       const review = req.body; // { riderEmail, rating, comment, userName, userImage, date }
       const result = await reviewCollection.insertOne(review);
-
-      // বোনাস: রাইডারের প্রোফাইলে টোটাল রিভিউ কাউন্ট আপডেট করতে পারো (ঐচ্ছিক)
       res.send(result);
     });
 
-    // ৩. রাইডার অনুযায়ী রিভিউ পাওয়ার API (রাইডারের প্রোফাইলে দেখানোর জন্য)
+    // Show Reviews in the riders page API 
     app.get("/reviews/:email", async (req, res) => {
       const email = req.params.email;
       const query = { riderEmail: email };
