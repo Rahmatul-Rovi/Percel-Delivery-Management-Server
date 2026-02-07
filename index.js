@@ -327,13 +327,12 @@ async function run() {
           const email = req.params.email;
           const query = {
             riderEmail: email,
-            deliveryStatus: { $in: ["delivered", "Processing"] }, // আপনার ডাটাবেস অনুযায়ী Processing যোগ করলাম
+            deliveryStatus: { $in: ["delivered", "Processing"] }, 
           };
 
           const result = await parcelCollection.find(query).toArray();
 
           const parcelsWithEarnings = result.map((parcel) => {
-            // আপনার ডাটাবেসে ফিল্ডের নাম 'deliveryCost'
             const cost = Number(parcel.deliveryCost || 0);
 
             let rate = 0.3;
@@ -346,7 +345,7 @@ async function run() {
 
             return {
               ...parcel,
-              deliveryFee: cost, // ফ্রন্টএন্ডের সুবিধার জন্য এটি deliveryFee নামে পাঠাচ্ছি
+              deliveryFee: cost, 
               earnings: cost * rate,
             };
           });
@@ -358,12 +357,12 @@ async function run() {
       },
     );
 
-    // ২. ক্যাশআউট রিকোয়েস্ট এপিআই
+    // CashOut request API
     app.post("/cashout", verifyFBToken, verifyRider, async (req, res) => {
       try {
         const { parcelId, riderEmail, amount } = req.body;
 
-        // চেক করা যে অলরেডি ক্যাশআউট হয়েছে কি না
+        // Check if the parcel is already cashed out
         const parcel = await parcelCollection.findOne({
           _id: new ObjectId(parcelId),
         });
@@ -371,13 +370,13 @@ async function run() {
           return res.status(400).send({ message: "Already cashed out!" });
         }
 
-        // পার্সেলে ক্যাশআউট স্ট্যাটাস আপডেট করা
+        // Cashout status update 
         await parcelCollection.updateOne(
           { _id: new ObjectId(parcelId) },
           { $set: { isCashedOut: true } },
         );
 
-        // উইথড্র রেকর্ড রাখা (ভবিষ্যতে অ্যাডমিন প্যানেলে দেখার জন্য)
+        // Withdraw record insert
         const withdrawalDoc = {
           parcelId,
           riderEmail,
@@ -410,7 +409,7 @@ async function run() {
       },
     );
 
-    // রাইডার যখন পার্সেল পিক-আপ করবে
+    // Rider parcel pickup
     app.patch("/parcel/pickup/:id", verifyFBToken, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
@@ -428,13 +427,12 @@ async function run() {
       res.send(result);
     });
 
-    // যে কেউ ট্র্যাকিং আইডি দিয়ে পার্সেল ট্র্যাক করতে পারবে
+    // Anyone can track parcel with trackingId
     app.get("/track-parcel/:trackingId", async (req, res) => {
       try {
         const trackingId = req.params.trackingId;
         const query = { trackingId: trackingId };
 
-        // আমরা শুধু প্রয়োজনীয় তথ্যগুলোই পাঠাবো নিরাপত্তার জন্য
         const projection = {
           projection: {
             receiverName: 1,
@@ -539,7 +537,7 @@ async function run() {
       }
     });
 
-    // Notun parcel post kora
+    // New Parcel Post
     app.post("/parcels", async (req, res) => {
       const newParcel = req.body;
       const result = await parcelCollection.insertOne(newParcel);
@@ -569,7 +567,7 @@ async function run() {
       }
     });
 
-    // Parcel delete kora
+    // Parcel delete by ID
     app.delete("/parcels/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -580,7 +578,7 @@ async function run() {
     app.patch("/parcel/pickup/:id", async (req, res) => {
       const id = req.params.id;
       const updateDoc = {
-        $set: { deliveryStatus: "On The Way" }, // স্ট্যাটাস আপডেট
+        $set: { deliveryStatus: "On The Way" }, // Status Update
         $push: {
           trackingHistory: {
             status: "Picked Up",
