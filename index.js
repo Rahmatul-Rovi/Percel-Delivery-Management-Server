@@ -42,7 +42,7 @@ async function run() {
     const parcelCollection = db.collection("parcels");
     const userCollection = db.collection("users"); // User Collection
     const ridersCollection = db.collection("riders"); //rider Collection
-    const reviewCollection = db.collection("reviews");
+    const reviewCollection = db.collection("reviews"); //reviews Collection
 
     // Custom middlewares
     const verifyFBToken = async (req, res, next) => {
@@ -79,24 +79,24 @@ async function run() {
       next();
     };
 
-    // ১. অ্যাডমিন স্ট্যাটিস্টিক্স এপিআই
+    // Admin statistics API
     app.get("/admin-stats", verifyFBToken, verifyAdmin, async (req, res) => {
       try {
-        // বুকিং ট্রেন্ডস (তারিখ অনুযায়ী গ্রুপ করা)
+        // Booking Trends(with date)
         const bookingTrends = await parcelCollection
           .aggregate([
             {
               $group: {
-                _id: { $substr: ["$creationDate", 0, 10] }, // "DD/MM/YYYY" ফরম্যাট থেকে তারিখ নেওয়া
+                _id: { $substr: ["$creationDate", 0, 10] }, 
                 bookings: { $sum: 1 },
               },
             },
             { $sort: { _id: 1 } },
-            { $limit: 7 }, // গত ৭ দিনের ডাটা
+            { $limit: 7 }, 
           ])
           .toArray();
 
-        // ডিস্ট্রিক্ট অনুযায়ী তুলনা (Comparison)
+        // District Stats (Comparison)
         const districtStats = await parcelCollection
           .aggregate([
             {
@@ -136,11 +136,10 @@ async function run() {
       const email = req.query.email;
       if (!email) return res.send([]);
 
-      // 'i' option mane case-insensitive, mane boro/choto hater spelling e problem hobe na
       const query = { email: { $regex: email, $options: "i" } };
       const result = await userCollection
         .find(query)
-        .limit(5) // Suggestion e 5 tar beshi dorkar nai
+        .limit(5) 
         .toArray();
       res.send(result);
     });
@@ -156,7 +155,7 @@ async function run() {
         const query = { email: email };
         const user = await userCollection.findOne(query);
 
-        // ডাটাবেসে রোল না থাকলে 'user' হিসেবে পাঠান
+        // Check if the user exists
         res.send({
           role: user?.role || "user",
         });
@@ -165,14 +164,14 @@ async function run() {
       }
     });
 
-    // ১. ইউজার রোল চেক করার API (DashBoard এ অ্যাডমিন অপশন দেখানোর জন্য মেইন কি)
+    // User Role Check API (DashBoard Related API for Admin)
     app.get("/users/role/:email", verifyFBToken, async (req, res) => {
       const email = req.params.email;
       const user = await userCollection.findOne({ email });
       res.send({ role: user?.role || "user" });
     });
 
-    // ২. ইউজার সেভ করা (Social Login বা Register এর সময়)
+    // Save User (Social Login or Register User)
     app.post("/users", async (req, res) => {
       const user = req.body;
       const query = { email: user.email };
@@ -182,13 +181,13 @@ async function run() {
       }
       const result = await userCollection.insertOne({
         ...user,
-        role: user.role || "user", // ডিফল্ট রোল ইউজার
+        role: user.role || "user", 
         timestamp: new Date(),
       });
       res.send(result);
     });
 
-    // ১. ইউজারের বুকিং সংখ্যা জানার জন্য
+    // For User Bookibg Stats
     app.get("/user-stats/:email", verifyFBToken, async (req, res) => {
       const email = req.params.email;
       const count = await parcelCollection.countDocuments({
